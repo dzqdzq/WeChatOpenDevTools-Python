@@ -40,13 +40,27 @@ class WechatUtils:
         wechat_instances = self.get_wechat_pids_and_versions()
         return wechat_instances[0] if wechat_instances else (None, None)
 
+    def getpid_version(self, processInfo):
+        pid_pattern = r'(?:^|\s)(\d+)\s'
+        pid_match = re.search(pid_pattern, processInfo)
+        pid = pid_match.group(1) if pid_match else None
+
+        # 提取版本号（匹配MacWechat/后的数字部分）
+        version_pattern = r'MacWechat/([\d.]+)'
+        version_match = re.search(version_pattern, processInfo)
+        version = version_match.group(1) if version_match else None
+        return pid, version
+    
     def get_wechat_pids_and_versions_mac(self):
         try:
-            pid_command = "ps aux | grep 'WeChatAppEx' |  grep -v 'grep' | grep ' --client_version' | grep '-user-agent=' | awk '{print $2}'"
-            version_command = "ps aux | grep 'WeChatAppEx' |  grep -v 'grep' | grep ' --client_version' | grep '-user-agent=' | grep -oE 'MacWechat/([0-9]+\.)+[0-9]+\(0x\d+\)' |  grep -oE '(0x\d+)' | sed 's/0x//g'"
-            pids = subprocess.run(pid_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.split()
-            versions = subprocess.run(version_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.split()
-            return list(zip(map(int, pids), versions))
+            pid_command = "ps aux | grep 'WeChatAppEx' |  grep -v 'grep' | grep ' --client_version' | grep '-user-agent='"
+            processInfos = subprocess.run(pid_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.splitlines()
+            
+            infos = []
+            for processInfo in processInfos:
+                infos.append(self.getpid_version(processInfo))
+
+            return infos
         except subprocess.CalledProcessError as e:
             print(Color.RED + f"Error getting MacOS WeChat instances: {e.stderr}" + Color.END)
             return []
@@ -94,16 +108,3 @@ class WechatUtils:
         
         return None, None
     
-    def print_process_not_found_message(self):
-        print(Color.RED + "[-] 未找到匹配版本的微信进程或微信未运行" + Color.END)
-
-    def get_wechat_pid_and_version_mac(self):
-        try:
-            pid_command="ps aux | grep 'WeChatAppEx' |  grep -v 'grep' | grep ' --client_version' | grep '-user-agent=' | awk '{print $2}' | tail -n 1"
-            version_command = "ps aux | grep 'WeChatAppEx' |  grep -v 'grep' | grep ' --client_version' | grep '-user-agent=' | grep -oE 'MacWechat/([0-9]+\.)+[0-9]+\(0x\d+\)' |  grep -oE '(0x\d+)' | sed 's/0x//g' | head -n 1"
-            pid  = subprocess.run(pid_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.replace("\n","")
-            version  = subprocess.run(version_command, shell=True, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.replace("\n","")
-            return int(pid),version
-        except subprocess.CalledProcessError as e:
-            return e.stderr
-
